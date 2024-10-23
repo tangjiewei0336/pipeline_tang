@@ -8,7 +8,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run the pipeline with specified file(s).')
     
     # both
-    parser.add_argument('--filename', required=True, help='Path relative to input folder of the input file')
+    parser.add_argument('--filename', required=False, help='Path relative to input folder of the input file')
     parser.add_argument('--workflow', required=False, default='generation', help='Workflow to run')
     parser.add_argument('--skip', required=False, default=0, help='Number of components to skip')
     parser.add_argument('--llm', required=False, default='qwen', help='Base model to use')

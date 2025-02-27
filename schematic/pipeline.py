@@ -9,15 +9,15 @@ from schematic.checkpoint import ScriptWithArgs
 def run_script(script_name: str, args: Dict[str, str] = None) -> bool:
     if args is None:
         args = {}
-    cmd_args = [f"--{key}={value}" for key, value in args.items()]
-    cmd = ['python', script_name] + cmd_args
+    cmd_args = [f"--{key}={value}" for key, value in args.items()] + [f"--script={script_name}"]
+    cmd = ['python', 'schematic/code_runner.py'] + cmd_args
 
     percent = 0
     avg_step_time = "--"
     remaining_time = "--"
 
     try:
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         info_str = ""
         sys.stdout.write("\n")
         while True:
@@ -34,7 +34,7 @@ def run_script(script_name: str, args: Dict[str, str] = None) -> bool:
                 remaining_time = output.lstrip('{remaining_time}').strip('\n')
                 print(f"\rProgress: {percent}%  Speed: {avg_step_time}s/it  ETA: {remaining_time}secs", end="")
             elif "{log}" in output:
-                global_logger.log(output.lstrip('{log}').strip('\n'), level="WARNING")
+                global_logger.log(output.lstrip('{log}').strip('\n').replace('\x10','\n'), level="WARNING")
             else:
                 info_str += output
 
@@ -66,11 +66,18 @@ def run_script(script_name: str, args: Dict[str, str] = None) -> bool:
 
 
 def run_pipeline(scripts_with_args: List[Tuple[str, Dict[str, str]] | ScriptWithArgs]):
+    total_scripts = len(scripts_with_args)
+    current_script_index = 0  # 用于记录当前执行的脚本序号
+
     for script, args in scripts_with_args:
+        current_script_index += 1
         if script == "noscript":
             continue
-        global_logger.log(f"Running {script}...")
+        if script == "exit":
+            break
+
+        global_logger.log(f"Running script {current_script_index}/{total_scripts}: {script}...")
         terminate_sign = run_script("run/workflow/" + script, args)
         if terminate_sign:
-            global_logger.log(f"Workflow terminated by user.")
+            global_logger.log(f"Workflow terminated by user at script {current_script_index}.")
             sys.exit(0)

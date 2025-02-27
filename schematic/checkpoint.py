@@ -57,3 +57,13 @@ class PlaceHolder:
         global_logger.log(self.description)
         yield "noscript"
         yield []
+
+
+@dataclass
+class Exit:
+    description: str
+
+    def __iter__(self):
+        global_logger.log(self.description)
+        yield "exit"
+        yield []

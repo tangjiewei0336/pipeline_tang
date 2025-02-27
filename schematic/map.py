@@ -1,28 +1,45 @@
-from functools import wraps, partial
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import wraps, partial
 from inspect import signature
-from typing import List, Callable
+from typing import List
 
+from run.workflow.components.concurrency import concurrent
 from run.workflow.components.concurrency.concurrent import AnalysisChainExecutor
 from run.workflow.llm.qwen_embedding_langchain_base import QwenEmbeddings
-from run.workflow.llm.qwen_langchain_base import chat_total_invocations, chat_total_tokens
 from schematic.logger import global_logger
 
 
-def iterate(iterable_arg_index):
+def iterate(iterable_arg_index, parallel_execution=True, max_workers=10, progress_report=False):
+    """
+    装饰器：让某个参数可迭代，并支持并发执行。
+
+    :param iterable_arg_index: 需要迭代的参数的索引
+    :param parallel_execution: 是否并行执行
+    :param max_workers: 最大线程数，仅在 parallel_execution=True 时生效
+    :param progress_report: 是否显示进度
+    """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # 获取需要迭代的参数
             iterable_arg = args[iterable_arg_index]
-            # 创建callable对象列表
-            callables = []
-            for item in iterable_arg:
-                # 为每个迭代项创建一个新的callable对象
-                # 我们使用partial来固定迭代的参数
-                from functools import partial
-                callables.append(partial(func, *args[:iterable_arg_index], item, *args[iterable_arg_index + 1:]))
-            return callables
+            callables = [partial(func, *args[:iterable_arg_index], item, *args[iterable_arg_index + 1:], **kwargs)
+                         for item in iterable_arg]
+
+            if parallel_execution:
+                results = []
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    future_to_callable = {executor.submit(c): c for c in callables}
+
+                    for future in as_completed(future_to_callable):
+                        try:
+                            results.append(future.result())
+                        except Exception as e:
+                            print(f"Error occurred: {e}")
+                return results
+            else:
+                return [c() for c in callables]
 
         return wrapper
 

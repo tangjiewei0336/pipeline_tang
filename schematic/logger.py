@@ -1,5 +1,7 @@
 import logging
 import inspect
+import os
+import sys
 
 
 class ColoredLogger:
@@ -24,7 +26,13 @@ class ColoredLogger:
             return super().format(record)
 
     def __init__(self, name='1'):
-        self.MAX_LINE_LENGTH = 40
+        # 获得命令行宽度
+        try:
+            terminal_width = os.get_terminal_size().columns
+        except OSError:
+            print("无法获取终端宽度，使用默认值。")
+            terminal_width = 150
+        self.MAX_LINE_LENGTH = terminal_width - 65
         self.logger = logging.getLogger(name)
         handler = logging.StreamHandler()
         formatter = self.ColoredFormatter(
@@ -34,9 +42,12 @@ class ColoredLogger:
         self.logger.setLevel(logging.DEBUG)
 
     def instant_log(self, msg):
+        msg = msg.replace('\n', '\x10')
         print(f"{{log}}{msg}")
+        # flush
+        sys.stdout.flush()
 
-    def log(self, msg, level='INFO', same_line=False):
+    def log(self, msg, level='INFO', same_line=False, origin=None):
         """
         输出日志。
         :param msg: 日志内容
@@ -44,8 +55,10 @@ class ColoredLogger:
         """
         # 获取调用方的信息
         frame = inspect.currentframe().f_back
-        classname = frame.f_locals.get('self', None).__class__.__name__ if 'self' in frame.f_locals else 'N/A'
-
+        if origin is not None:
+            classname = origin
+        else:
+            classname = frame.f_locals.get('self', None).__class__.__name__ if 'self' in frame.f_locals else 'N/A'
         extra = {'classname': classname, "continue": ''}
         msgs = msg.split("\n")
         continue_mark = ''
@@ -62,6 +75,8 @@ class ColoredLogger:
                 elif level == 'INFO':
                     self.logger.info(msg[:self.MAX_LINE_LENGTH] + continue_mark, extra=extra)
                 msg = msg[self.MAX_LINE_LENGTH:]
+        # flush
+        sys.stdout.flush()
 
     def enable_save_log(self, path):
         """

@@ -59,6 +59,9 @@ class ProgressIter:
         else:
             print(f'\rIteration {iteration} ', end=self.print_end)
 
+        # flush stdout
+        sys.stdout.flush()
+
         if iteration == self.total:
             time.sleep(0.5)
 
